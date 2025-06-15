@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Standalone Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 450px;
+            height: 700px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+            color: white;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h2 {
+            margin-bottom: 8px;
+            font-size: 24px;
+        }
+
+        .server-input {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+
+        .server-input input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 5px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 14px;
+        }
+
+        .server-input input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .server-input input:focus {
+            outline: none;
+            border-color: rgba(255,255,255,0.8);
+            background: rgba(255,255,255,0.2);
+        }
+
+        .status {
+            padding: 15px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 500;
+            background: #f7fafc;
+            border-bottom: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+
+        .status.connected {
+            background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%);
+            color: #2d7d32;
+        }
+
+        .status.disconnected {
+            background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+            color: #c53030;
+        }
+
+        .status.connecting {
+            background: linear-gradient(135deg, #fef5e7 0%, #fed7aa 100%);
+            color: #c05621;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .messages::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 12px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            animation: slideIn 0.3s ease-out;
+            border-left: 4px solid transparent;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.server {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-left-color: #2196f3;
+        }
+
+        .message.private {
+            background: linear-gradient(135deg, #fff3e0 0%, #ffcc02 100%);
+            border-left-color: #ff9800;
+        }
+
+        .message.own {
+            background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+            border-left-color: #4caf50;
+            margin-left: 20px;
+        }
+
+        .message-header {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .message-text {
+            font-size: 14px;
+            line-height: 1.5;
+            color: #333;
+        }
+
+        .typing-indicator {
+            padding: 10px 20px;
+            font-style: italic;
+            color: #666;
+            font-size: 12px;
+            background: #f0f0f0;
+            border-top: 1px solid #e0e0e0;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        .input-section {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 25px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #0969da;
+            box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
+        }
+
+        button {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #0969da 0%, #0550ae 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(9, 105, 218, 0.3);
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(9, 105, 218, 0.4);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #8c959f;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .controls button {
+            font-size: 12px;
+            padding: 10px 15px;
+            border-radius: 20px;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+            box-shadow: 0 2px 8px rgba(108, 117, 125, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+            box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+            color: #212529;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+        }
+
+        .connection-info {
+            font-size: 12px;
+            color: rgba(255,255,255,0.8);
+            margin-top: 5px;
+        }
+
+        .no-messages {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            margin-top: 50px;
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                height: 90vh;
+                max-height: 90vh;
+            }
+            
+            .controls {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>🚀 Socket.IO Client</h2>
+            <div class="server-input">
+                <input type="text" id="serverUrl" placeholder="Server URL (e.g., http://localhost:3000)" value="http://localhost:3000" />
+            </div>
+            <div class="connection-info" id="connectionInfo">
+                Ready to connect
+            </div>
+        </div>
+        
+        <div id="status" class="status disconnected">
+            ⚫ Disconnected
+        </div>
+        
+        <div class="typing-indicator" id="typingIndicator" style="display: none;">
+            💬 Someone is typing...
+        </div>
+        
+        <div class="messages" id="messages">
+            <div class="no-messages">
+                No messages yet. Connect to start chatting! 💬
+            </div>
+        </div>
+        
+        <div class="input-section">
+            <div class="input-group">
+                <input type="text" id="messageInput" placeholder="Type your message..." disabled />
+                <button id="sendBtn" onclick="sendMessage()" disabled>Send</button>
+            </div>
+            
+            <div class="controls">
+                <button id="connectBtn" onclick="connect()" class="btn-success">🔗 Connect</button>
+                <button id="disconnectBtn" onclick="disconnect()" disabled class="btn-danger">❌ Disconnect</button>
+                <button onclick="sendCustomEvent()" disabled id="customBtn" class="btn-warning">⚡ Custom Event</button>
+                <button onclick="clearMessages()" class="btn-secondary">🗑️ Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Socket.IO from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
+    <script>
+        let socket = null;
+        let isTyping = false;
+        let typingTimer = null;
+        let messageCount = 0;
+
+        const statusEl = document.getElementById('status');
+        const connectionInfoEl = document.getElementById('connectionInfo');
+        const messagesEl = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const customBtn = document.getElementById('customBtn');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const serverUrlInput = document.getElementById('serverUrl');
+
+        function updateStatus(status, message = '') {
+            const statusMap = {
+                'connected': { emoji: '🟢', text: 'Connected', class: 'connected' },
+                'disconnected': { emoji: '⚫', text: 'Disconnected', class: 'disconnected' },
+                'connecting': { emoji: '🟡', text: 'Connecting...', class: 'connecting' }
+            };
+
+            const statusInfo = statusMap[status] || statusMap['disconnected'];
+            statusEl.textContent = `${statusInfo.emoji} ${statusInfo.text}`;
+            statusEl.className = `status ${statusInfo.class}`;
+
+            if (status === 'connected') {
+                connectionInfoEl.textContent = `Socket ID: ${socket.id}`;
+                messageInput.disabled = false;
+                sendBtn.disabled = false;
+                disconnectBtn.disabled = false;
+                customBtn.disabled = false;
+                connectBtn.disabled = true;
+                serverUrlInput.disabled = true;
+            } else {
+                connectionInfoEl.textContent = message || 'Ready to connect';
+                messageInput.disabled = true;
+                sendBtn.disabled = true;
+                disconnectBtn.disabled = true;
+                customBtn.disabled = true;
+                connectBtn.disabled = false;
+                serverUrlInput.disabled = false;
+            }
+        }
+
+        function connect() {
+            const serverUrl = serverUrlInput.value.trim();
+            if (!serverUrl) {
+                alert('Please enter a server URL');
+                return;
+            }
+
+            if (socket && socket.connected) return;
+
+            updateStatus('connecting', 'Attempting to connect...');
+
+            try {
+                socket = io(serverUrl, {
+                    transports: ['websocket', 'polling'],
+                    timeout: 5000
+                });
+
+                socket.on('connect', () => {
+                    console.log('✅ Connected to server');
+                    updateStatus('connected');
+                    addMessage('System', '🎉 Successfully connected to server!', 'server');
+                    clearNoMessages();
+                });
+
+                socket.on('disconnect', (reason) => {
+                    console.log('❌ Disconnected:', reason);
+                    updateStatus('disconnected', `Disconnected: ${reason}`);
+                    addMessage('System', `📡 Connection lost: ${reason}`, 'server');
+                });
+
+                socket.on('message', (data) => {
+                    addMessage(data.user, data.text, data.user === 'Server' ? 'server' : 'user');
+                });
+
+                socket.on('private message', (data) => {
+                    addMessage(`${data.from} 🔒`, data.message, 'private');
+                });
+
+                socket.on('custom response', (data) => {
+                    addMessage('Server ⚡', `Custom response: ${data.message}`, 'server');
+                });
+
+                socket.on('user typing', (data) => {
+                    if (data.isTyping) {
+                        typingIndicator.textContent = `💬 ${data.user} is typing...`;
+                        typingIndicator.style.display = 'block';
+                    } else {
+                        typingIndicator.style.display = 'none';
+                    }
+                });
+
+                socket.on('connect_error', (error) => {
+                    console.error('❌ Connection error:', error);
+                    updateStatus('disconnected', `Connection failed: ${error.message}`);
+                    addMessage('System', `⚠️ Connection error: ${error.message}`, 'server');
+                });
+
+                socket.on('reconnect', (attemptNumber) => {
+                    console.log('🔄 Reconnected after', attemptNumber, 'attempts');
+                    addMessage('System', `🔄 Reconnected successfully!`, 'server');
+                });
+
+                socket.on('reconnect_error', (error) => {
+                    console.error('🔄❌ Reconnection error:', error);
+                    addMessage('System', `⚠️ Reconnection failed: ${error.message}`, 'server');
+                });
+
+            } catch (error) {
+                console.error('❌ Error creating socket:', error);
+                updateStatus('disconnected', `Error: ${error.message}`);
+                addMessage('System', `⚠️ Failed to create connection: ${error.message}`, 'server');
+            }
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+                updateStatus('disconnected', 'Manually disconnected');
+                addMessage('System', '👋 Manually disconnected from server', 'server');
+            }
+        }
+
+        function clearNoMessages() {
+            const noMessages = messagesEl.querySelector('.no-messages');
+            if (noMessages) {
+                noMessages.remove();
+            }
+        }
+
+        function addMessage(user, text, type = 'user', isOwnMessage = false) {
+            clearNoMessages();
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type} ${isOwnMessage ? 'own' : ''}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            messageDiv.innerHTML = `
+                <div class="message-header">${user} • ${timestamp}</div>
+                <div class="message-text">${text}</div>
+            `;
+            
+            messagesEl.appendChild(messageDiv);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            messageCount++;
+
+            // Add notification sound (optional)
+            if (type !== 'server' && !isOwnMessage) {
+                playNotificationSound();
+            }
+        }
+
+        function playNotificationSound() {
+            // Create a simple notification beep
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.1);
+            } catch (e) {
+                // Ignore audio errors
+            }
+        }
+
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message && socket && socket.connected) {
+                socket.emit('chat message', { message });
+                addMessage('You', message, 'user', true);
+                messageInput.value = '';
+                
+                // Stop typing indicator
+                if (isTyping) {
+                    socket.emit('typing', { isTyping: false });
+                    isTyping = false;
+                }
+            }
+        }
+
+        function sendCustomEvent() {
+            if (socket && socket.connected) {
+                const customData = {
+                    type: 'test',
+                    timestamp: Date.now(),
+                    random: Math.random(),
+                    userAgent: navigator.userAgent,
+                    messageCount: messageCount
+                };
+                
+                socket.emit('custom event', customData);
+                addMessage('You', '⚡ Sent custom event with test data', 'user', true);
+            }
+        }
+
+        function clearMessages() {
+            messagesEl.innerHTML = '<div class="no-messages">Messages cleared 🧹</div>';
+            messageCount = 0;
+        }
+
+        // Handle typing indicator
+        messageInput.addEventListener('input', () => {
+            if (socket && socket.connected) {
+                if (!isTyping) {
+                    socket.emit('typing', { isTyping: true });
+                    isTyping = true;
+                }
+                
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(() => {
+                    if (socket && socket.connected) {
+                        socket.emit('typing', { isTyping: false });
+                    }
+                    isTyping = false;
+                }, 1000);
+            }
+        });
+
+        // Handle Enter key
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Handle server URL input changes
+        serverUrlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                connect();
+            }
+        });
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && socket && socket.connected) {
+                // Page is hidden, could implement "away" status
+            } else if (!document.hidden && socket && socket.connected) {
+                // Page is visible again
+            }
+        });
+
+        // Handle page unload
+        window.addEventListener('beforeunload', () => {
+            if (socket) {
+                socket.disconnect();
+            }
+        });
+
+        // Initialize
+        window.addEventListener('load', () => {
+            console.log('🚀 Socket.IO Standalone Client loaded');
+            addMessage('System', '👋 Welcome! Enter server URL and click Connect to start.', 'server');
+        });
+    </script>
+</body>
+</html>
